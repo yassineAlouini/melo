@@ -1,2 +1,3 @@
-# multiplayer_elo
-A multiplayer ELO system
+# MELO
+
+A Multiplayer ELO Tracking System
