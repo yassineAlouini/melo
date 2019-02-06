@@ -1,3 +1,5 @@
 elo
 pandas
 slacker
+pytest
+emoji
