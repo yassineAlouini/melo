@@ -1,18 +1,45 @@
+# -*- coding: utf-8 -*-
+
 from melo.poc import update_matches_outcome
 import pandas as pd
-
-
-
+import unittest
 
 # TODO: Use pytest fixtures for more cases.
-def test_update_matches_outcome():
-    df = pd.DataFrame({"player": ["yass", "theo", "gaetan", "thomas", "polo"], "games": [0, 0, 0, 0, 0],
-                       "win": [0, 0, 0, 0, 0],
-                       "loss": [0, 0, 0, 0, 0],
-                       "draw": [0, 0, 0, 0, 0]})
-    state = "WIN"
-    team_1_players = ["yass", "theo", "polo"]
-    team_2_players = ["gaetan", "thomas"]
-    outcome_df = update_matches_outcome(df, state, team_1_players, team_2_players)
-    # More games have been played after this game
-    assert outcome_df["games"].sum() > df["games"].sum()
+
+
+class MELOBaseTestCase(unittest.TestCase):
+
+    def test_update_matches_outcome(self):
+        df = pd.DataFrame({"player": ["yass", "theo", "gaetan", "thomas", "polo"], "games": [0, 0, 0, 0, 0],
+                           "win": [0, 0, 0, 0, 0],
+                           "loss": [0, 0, 0, 0, 0],
+                           "draw": [0, 0, 0, 0, 0]})
+        state = "WIN"
+        team_1_players = ["yass", "theo", "polo"]
+        team_2_players = ["gaetan", "thomas"]
+        outcome_df = update_matches_outcome(
+            df, state, team_1_players, team_2_players)
+        # More games have been played after this game
+        assert outcome_df["games"].sum() == 5 + df["games"].sum()
+        outcome_df = update_matches_outcome(
+            outcome_df, state, team_1_players, team_2_players)
+        # Even more games have been played after this game
+        assert outcome_df["games"].sum() == 10 + df["games"].sum()
+
+    def test_coherent_score_evolution(self):
+        df = pd.DataFrame({"player": ["yass", "theo", "gaetan", "thomas", "polo"], "games": [0, 0, 0, 0, 0],
+                           "win": [0, 0, 0, 0, 0],
+                           "loss": [0, 0, 0, 0, 0],
+                           "draw": [0, 0, 0, 0, 0]})
+        state = "WIN"
+        team_1_players = ["yass", "theo", "polo"]
+        team_2_players = ["gaetan", "thomas"]
+        outcome_df = update_matches_outcome(
+            df, state, team_1_players, team_2_players)
+        # Winners have won a game, losers have lost a game.
+        winners_df = outcome_df.loc[outcome_df["player"].isin(team_1_players)]
+        losers_df = outcome_df.loc[outcome_df["player"].isin(team_2_players)]
+        assert all(winners_df.loc[:, ['win']])
+        assert all(~winners_df.loc[:, ['loss']])
+        assert all(losers_df.loc[:, ['loss']])
+        assert all(~losers_df.loc[:, ['win']])

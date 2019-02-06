@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # A POC implementation
 
 
@@ -28,26 +30,36 @@ def compute_score(state, team_1_score, team_2_score):
     if state == "WIN":
         scores = elo.rate_1vs1(team_1_score, team_2_score)
     elif state == "LOSS":
-        scores = elo.rate_1vs1(player_2_score, team_1_score)[::-1]
+        scores = elo.rate_1vs1(team_2_score, team_1_score)[::-1]
     else:
         scores = elo.rate_1vs1(team_1_score, team_2_score, drawn=True)
     return scores
 
 # TODO: Some refactoring...
+
+
 def get_game_state():
-    team_1_players = raw_input("Enter the players' names from team 1 (names space-separated): ").split(" ")
-    team_2_players = raw_input("Enter the players' names from team 2 (names space-separated):  ").split(" ")
+    team_1_players = raw_input(
+        "Enter the players' names from team 1 (names space-separated): ").split(" ")
+    team_2_players = raw_input(
+        "Enter the players' names from team 2 (names space-separated):  ").split(" ")
     if not team_1_players or not team_2_players:
-        raise Exception("You haven't entred players' names for either team 1 or team 2")
+        raise Exception(
+            "You haven't entred players' names for either team 1 or team 2")
     if len(set(team_1_players)) != len(team_1_players):
-        raise Exception("You have entred the name of a player many times for team 1.")
+        raise Exception(
+            "You have entred the name of a player many times for team 1.")
     if len(set(team_2_players)) != len(team_2_players):
-        raise Exception("You have entred the name of a player many times for team 2.")
-    if set(team_1_players) & set(team2_players):
-        raise Exception("There shouldn't be any commong players between the two teams. Please enter the names again.")
-    winning_team = raw_input("Enter the name of the winning team. Space character if it is a draw.")
+        raise Exception(
+            "You have entred the name of a player many times for team 2.")
+    if set(team_1_players) & set(team_2_players):
+        raise Exception(
+            "There shouldn't be any commong players between the two teams. Please enter the names again.")
+    winning_team = raw_input(
+        "Enter the name of the winning team. Space character if it is a draw.")
     if winning_team not in ["team_1", "team_2", " "]:
-        raise Exception("The winning team should be either 'team_1', 'team_2' or a ' ' if a draw.")
+        raise Exception(
+            "The winning team should be either 'team_1', 'team_2' or a ' ' if a draw.")
     if winning_team == "team_1":
         state = "WIN"
     elif winning_team == "team_2":
@@ -78,19 +90,24 @@ def update_matches_outcome(input_df, state, team_1_players, team_2_players):
         raise Exception("You have provided a state that isn't available!")
     return df
 
+
 def get_results_msg(df, team_1_players, team_1_new_score, team_1_scores, team_2_players, team_2_new_score,
                     team_2_scores):
     formatted_data = tabulate(df, headers='keys', tablefmt='psql')
     team_1_deltas = team_1_new_score - team_1_scores
     team_2_deltas = team_2_new_score - team_2_scores
     assert len(team_1_deltas) == len(team_2_deltas)
-    msg = ' '.join([u'{} got {}. \n'.format(player, delta) for player, delta in zip(team_1_players, team_1_deltas)])
-    msg = msg + ' '.join([u'{} got {}. \n'.format(player, delta) for player, delta in zip(team_2_players, team_2_deltas)])
-    msg = msg + u'The new scores are:\n ```{}```Well played :wink2:'.format(formatted_data)
+    msg = ' '.join([u'{} got {}. \n'.format(player, delta)
+                    for player, delta in zip(team_1_players, team_1_deltas)])
+    msg = msg + ' '.join([u'{} got {}. \n'.format(player, delta)
+                          for player, delta in zip(team_2_players, team_2_deltas)])
+    msg = msg + \
+        u'The new scores are:\n ```{}```Well played :wink2:'.format(
+            formatted_data)
     return emoji.emojize(msg)
 
 
-def slack_results_msg(msg):
+def slack_results_msg(msg, test=False):
     if test:
         slack.chat.post_message(SLACK_USER, msg, as_user=False)
     else:
@@ -102,22 +119,29 @@ def main(game_type):
     path = PATHS.get(game_type, PATHS["test"])
     game_df = pd.read_csv(path)
     state, team_1_players, team_2_players = get_game_state()
-    game_df = update_matches_outcome(game_df, state, team_1_players, team_2_players)
-    team_1_scores = game_df.loc[lambda df: df.player.isin(team_1_players), 'score']
-    team_2_scores = game_df.loc[lambda df: df.player.isin(team_2_players), 'score']
+    game_df = update_matches_outcome(
+        game_df, state, team_1_players, team_2_players)
+    team_1_scores = game_df.loc[lambda df: df.player.isin(
+        team_1_players), 'score']
+    team_2_scores = game_df.loc[lambda df: df.player.isin(
+        team_2_players), 'score']
     # TODO: Using the mean for now. Make this more generalizable.
     team_1_score = float(team_1_scores.mean())
     team_2_score = float(team_2_scores.mean())
-    team_1_new_score, team_2_new_score = compute_score(state, team_1_score, team_2_score)
+    team_1_new_score, team_2_new_score = compute_score(
+        state, team_1_score, team_2_score)
     # Update the score
-    game_df.loc[lambda df: df.player.isin(team_1_players), 'score'] = team_1_new_score
-    game_df.loc[lambda df: df.player.isin(team_2_players), 'score'] = team_2_new_score
-    game_df = game_df.sort_values('score', ascending=False).reset_index(drop=True)
+    game_df.loc[lambda df: df.player.isin(
+        team_1_players), 'score'] = team_1_new_score
+    game_df.loc[lambda df: df.player.isin(
+        team_2_players), 'score'] = team_2_new_score
+    game_df = game_df.sort_values(
+        'score', ascending=False).reset_index(drop=True)
     # 1 based index
     game_df.index += 1
     game_df.to_csv(path, index=False)
     msg = get_results_msg(game_df, team_1_players, team_1_new_score, team_1_scores, team_2_players,
-                   team_2_new_score, team_2_scores)
+                          team_2_new_score, team_2_scores)
     slack_results_msg(msg)
 
 
