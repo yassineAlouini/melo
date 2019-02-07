@@ -1,5 +1,7 @@
 # MELO
 
+[![CircleCI](https://circleci.com/gh/yassineAlouini/melo/tree/master.svg?style=svg)](https://circleci.com/gh/yassineAlouini/melo/tree/master)
+
 A Multiplayer ELO Tracking System
 
 
