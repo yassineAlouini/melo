@@ -5,6 +5,12 @@ jobs:
       - image: circleci/python:3.6
     steps:
       - checkout
-      - run: pip install -r requirements.txt
+      - run:
+          name: Dependencies installation
+          command: |
+            mkdir -p ./venv
+            virtualenv ./venv
+            . venv/bin/activate
+            pip install -r requirements.txt
       - run: python setup.py test
 
