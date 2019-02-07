@@ -1,9 +1,10 @@
 version: 2
 jobs:
-  test:
+  build:
     docker:
       - image: circleci/python:3.6
     steps:
       - checkout
       - run: pip install -r requirements.txt
       - run: python setup.py test
+
