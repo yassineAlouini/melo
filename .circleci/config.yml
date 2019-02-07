@@ -13,4 +13,8 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
             pip install pytest
-      - run: py.test melo/tests
+      - run:
+           name: Run tests
+           command: |
+              . venv/bin/activate
+              py.test melo/tests
