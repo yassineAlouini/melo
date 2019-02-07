@@ -12,5 +12,4 @@ jobs:
             virtualenv ./venv
             . venv/bin/activate
             pip install -r requirements.txt
-      - run: python setup.py test
-
+      - run: py.test melo/tests
