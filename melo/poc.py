@@ -6,16 +6,18 @@ import pandas as pd
 from slacker import Slacker
 from tabulate import tabulate
 import emoji
+import os
+from pathlib import Path
 
 # TODO: Replace these with env variables.
-slack = Slacker('SLACK_API_KEY')  # API key
 K_FACTOR = 40
-CHANNEL = 'SLACK_CHANNEL'
-SLACK_USER = '@cat'
+CHANNEL =  os.environ.get("SLACK_CHANNEL")
+SLACK_USER = os.environ.get("SLACK_USER")
+DATA_FOLDER = Path(__file__).absolute().parent.joinpath('data')
+SLACK_API_KEY = os.environ.get("SLACK_API_KEY")
 # TODO: Add absolute paths.
-PATHS = {"test": 'test_scores.csv', "real": 'scores.csv'}
+PATHS = {"test": DATA_FOLDER / 'test_melo.csv', "real": DATA_FOLDER / 'melo.csv'}
 
-elo.setup(k_factor=K_FACTOR)
 
 
 def compute_score(state, team_1_score, team_2_score):
@@ -25,6 +27,9 @@ def compute_score(state, team_1_score, team_2_score):
     Notice that in the case of multiple players, it is the mean that is taken
     into account.
     """
+    # TODO: This score should depend on the points difference
+    GAME_DIFF = 10
+    elo.setup(k_factor=K_FACTOR * GAME_DIFF)
     if state == "WIN":
         scores = elo.rate_1vs1(team_1_score, team_2_score)
     elif state == "LOSS":
@@ -86,12 +91,13 @@ def get_results_msg(df, team_1_players, team_1_new_score, team_1_scores, team_2_
     assert len(team_1_deltas) == len(team_2_deltas)
     msg = ' '.join([u'{} got {}. \n'.format(player, delta) for player, delta in zip(team_1_players, team_1_deltas)])
     msg = msg + ' '.join([u'{} got {}. \n'.format(player, delta) for player, delta in zip(team_2_players, team_2_deltas)])
-    msg = msg + u'The new scores are:\n ```{}```Well played :wink2:'.format(formatted_data)
+    msg = msg + u'The new melos are:\n ```{}```Well played :wink2:'.format(formatted_data)
     return emoji.emojize(msg)
 
 
-def slack_results_msg(msg):
-    if test:
+def slack_results_msg(msg, game_type):
+    slack = Slacker(SLACK_API_KEY)
+    if game_type == "test":
         slack.chat.post_message(SLACK_USER, msg, as_user=False)
     else:
         slack.chat.post_message(CHANNEL, msg)
@@ -103,22 +109,22 @@ def main(game_type):
     game_df = pd.read_csv(path)
     state, team_1_players, team_2_players = get_game_state()
     game_df = update_matches_outcome(game_df, state, team_1_players, team_2_players)
-    team_1_scores = game_df.loc[lambda df: df.player.isin(team_1_players), 'score']
-    team_2_scores = game_df.loc[lambda df: df.player.isin(team_2_players), 'score']
+    team_1_scores = game_df.loc[lambda df: df.player.isin(team_1_players), 'elo']
+    team_2_scores = game_df.loc[lambda df: df.player.isin(team_2_players), 'elo']
     # TODO: Using the mean for now. Make this more generalizable.
     team_1_score = float(team_1_scores.mean())
     team_2_score = float(team_2_scores.mean())
     team_1_new_score, team_2_new_score = compute_score(state, team_1_score, team_2_score)
     # Update the score
-    game_df.loc[lambda df: df.player.isin(team_1_players), 'score'] = team_1_new_score
-    game_df.loc[lambda df: df.player.isin(team_2_players), 'score'] = team_2_new_score
+    game_df.loc[lambda df: df.player.isin(team_1_players), 'elo'] = team_1_new_score
+    game_df.loc[lambda df: df.player.isin(team_2_players), 'elo'] = team_2_new_score
     game_df = game_df.sort_values('score', ascending=False).reset_index(drop=True)
     # 1 based index
     game_df.index += 1
     game_df.to_csv(path, index=False)
     msg = get_results_msg(game_df, team_1_players, team_1_new_score, team_1_scores, team_2_players,
                    team_2_new_score, team_2_scores)
-    slack_results_msg(msg)
+    slack_results_msg(msg, game_type)
 
 
 if __name__ == '__main__':
