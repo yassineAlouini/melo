@@ -3,3 +3,4 @@ pandas
 slacker
 pytest
 emoji
+tabulate
