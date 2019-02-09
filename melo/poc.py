@@ -6,33 +6,22 @@
 import os
 from pathlib import Path
 
+import pandas as pd
+
 import elo
 import emoji
-import pandas as pd
+from melo.conf import BASE_K_FACTOR
 from slacker import Slacker
 from tabulate import tabulate
 
-# TODO: Replace these with env variables.
-K_FACTOR = 40
-CHANNEL = os.environ.get("SLACK_CHANNEL")
-SLACK_USER = os.environ.get("SLACK_USER")
-DATA_FOLDER = Path(__file__).absolute().parent.joinpath('data')
-SLACK_API_KEY = os.environ.get("SLACK_API_KEY")
-# TODO: Add absolute paths.
-PATHS = {"test": DATA_FOLDER / 'test_melo.csv',
-         "real": DATA_FOLDER / 'melo.csv'}
 
-
-def compute_score(state, team_1_score, team_2_score):
+def compute_score(state, team_1_score, team_2_score, points_difference):
     """
-    State contains the outcome of the game between player 1 and 2.
+    State contains the outcome of the game between team_1 and team_2.
     It is "WIN" if player 1 wins, "LOSS" if he looses and "DRAW" otherwise.
-    Notice that in the case of multiple players, it is the mean that is taken
-    into account.
     """
-    # TODO: This score should depend on the points difference
-    GAME_DIFF = 10
-    elo.setup(k_factor=K_FACTOR * GAME_DIFF)
+    # +1 to avoid having a k_factor of 0 when there is a DRAW.
+    elo.setup(k_factor=BASE_K_FACTOR * (points_difference + 1))
     if state == "WIN":
         scores = elo.rate_1vs1(team_1_score, team_2_score)
     elif state == "LOSS":
@@ -41,14 +30,14 @@ def compute_score(state, team_1_score, team_2_score):
         scores = elo.rate_1vs1(team_1_score, team_2_score, drawn=True)
     return scores
 
-# TODO: Some refactoring...
-
 
 def get_game_state():
     team_1_players = input(
         "Enter the players' names from team 1 (names space-separated): ").split(" ")
     team_2_players = input(
         "Enter the players' names from team 2 (names space-separated):  ").split(" ")
+    points_difference = input(
+        "Please enter the points difference between team 1 and team 2 (in absolute value): ")
     if not team_1_players or not team_2_players:
         raise Exception(
             "You haven't entred players' names for either team 1 or team 2")
@@ -72,7 +61,7 @@ def get_game_state():
         state = "LOSS"
     else:
         state = "DRAW"
-    return state, team_1_players, team_2_players
+    return state, team_1_players, team_2_players, int(points_difference)
 
 
 def update_matches_outcome(input_df, state, team_1_players, team_2_players):
