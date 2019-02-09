@@ -3,16 +3,13 @@
 # A POC implementation
 
 
-import os
-from pathlib import Path
-
-import pandas as pd
-
 import elo
 import emoji
-from melo.conf import BASE_K_FACTOR
+import pandas as pd
 from slacker import Slacker
 from tabulate import tabulate
+
+from melo.conf import BASE_K_FACTOR, CHANNEL, PATHS, SLACK_API_KEY, SLACK_USER
 
 
 def compute_score(state, team_1_score, team_2_score, points_difference):
@@ -32,12 +29,9 @@ def compute_score(state, team_1_score, team_2_score, points_difference):
 
 
 def get_game_state():
-    team_1_players = input(
-        "Enter the players' names from team 1 (names space-separated): ").split(" ")
-    team_2_players = input(
-        "Enter the players' names from team 2 (names space-separated):  ").split(" ")
-    points_difference = input(
-        "Please enter the points difference between team 1 and team 2 (in absolute value): ")
+    team_1_players = input("Enter the players' names from team 1 (names space-separated): ").split(" ")
+    team_2_players = input("Enter the players' names from team 2 (names space-separated): ").split(" ")
+    points_difference = input("Please enter the points difference between team 1 and team 2 (in absolute value): ")
     if not team_1_players or not team_2_players:
         raise Exception(
             "You haven't entred players' names for either team 1 or team 2")
@@ -50,8 +44,7 @@ def get_game_state():
     if set(team_1_players) & set(team_2_players):
         raise Exception(
             "There shouldn't be any commong players between the two teams. Please enter the names again.")
-    winning_team = input(
-        "Enter the name of the winning team. Space character if it is a draw.")
+    winning_team = input("Enter the name of the winning team or a space character if it is a draw: ")
     if winning_team not in ["team_1", "team_2", " "]:
         raise Exception(
             "The winning team should be either 'team_1', 'team_2' or a ' ' if a draw.")
@@ -110,13 +103,12 @@ def slack_results_msg(msg, game_type):
         slack.chat.post_message(CHANNEL, msg)
 
 
-def main(game_type):
+def main(game_type, slack=False):
     # TODO: Add some documentation
     path = PATHS.get(game_type, PATHS["test"])
     game_df = pd.read_csv(path)
-    state, team_1_players, team_2_players = get_game_state()
-    game_df = update_matches_outcome(
-        game_df, state, team_1_players, team_2_players)
+    state, team_1_players, team_2_players, points_difference = get_game_state()
+    game_df = update_matches_outcome(game_df, state, team_1_players, team_2_players)
     team_1_scores = game_df.loc[lambda df: df.player.isin(
         team_1_players), 'elo']
     team_2_scores = game_df.loc[lambda df: df.player.isin(
@@ -124,21 +116,22 @@ def main(game_type):
     # TODO: Using the mean for now. Make this more generalizable.
     team_1_score = float(team_1_scores.mean())
     team_2_score = float(team_2_scores.mean())
-    team_1_new_score, team_2_new_score = compute_score(
-        state, team_1_score, team_2_score)
+    team_1_new_score, team_2_new_score = compute_score(state, team_1_score, team_2_score, points_difference)
     # Update the score
     game_df.loc[lambda df: df.player.isin(
         team_1_players), 'elo'] = team_1_new_score
     game_df.loc[lambda df: df.player.isin(
         team_2_players), 'elo'] = team_2_new_score
-    game_df = game_df.sort_values(
-        'score', ascending=False).reset_index(drop=True)
+    game_df = game_df.sort_values('elo', ascending=False).reset_index(drop=True)
     # 1 based index
     game_df.index += 1
     game_df.to_csv(path, index=False)
     msg = get_results_msg(game_df, team_1_players, team_1_new_score, team_1_scores, team_2_players,
                           team_2_new_score, team_2_scores)
-    slack_results_msg(msg, game_type)
+    if slack:
+        slack_results_msg(msg, game_type)
+    else:
+        print(msg)
 
 
 if __name__ == '__main__':
